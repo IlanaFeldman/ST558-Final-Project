@@ -1,0 +1,128 @@
+---
+title: "Shiny Setup"
+author: "Ilana Feldman"
+date: "12/1/2021"
+output: html_document
+---
+
+```{r Packages}
+library(tidyverse)
+library(tree)
+library(caret)
+library(ranger)
+```
+
+# Purpose
+
+This document will likely not be in the final version of the project, or in the web app. The intention is to have a safe spot for all the code that will be transferred over to the Shiny app, to make sure that it works and to allow for tweaking without relying on the entire app.
+
+# Reading in the dataset + surface analysis
+
+```{r DatasetRead}
+OnlineShoppers <- read_csv("online_shoppers_intention.csv")
+```
+
+I have chosen a dataset of online shoppers found [here](https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset). According to the description of the data, each row represents one session on a certain online shopping site, each of which belongs to a different user across a 1-year period. The variables are as follows:  
+
+  1. Administrative: Number of Administrative pages visited  
+  2. Administrative_Duration: Amount of time spent on Administrative pages 
+  3. Informational: Number of Informational pages visited
+  4. Informational_Duration: Amount of time spent on Informational pages
+  5. ProductRelated: Number of Product-related pages visited
+  6. ProductRelated_Duration: Amount of time spent on Product-related pages
+  7. BounceRates: The bounce rate metric as measured by Google Analytics
+  8: ExitRates: The exit rate metric as measured by Google Analytics
+  9. PageValues: The average value for a webpage that a user visited before completing an e-commerce transaction, as measured by Google Analytics
+  10. SpecialDay: The proximity of the day to a period of time in which people would be expected to be more likely to complete their session with a transaction, due to an upcoming special day.
+  11. Month: The month of the year
+  12. OperatingSystems: The operating system used (represented by an integer)
+  13. Browser: The browser used (represented by an integer)
+  14. Region: The region in which the session takes place (represented by an integer)
+  15. TrafficType: The traffic type (represented by an integer) 
+  16. VisitorType: Whether the session is from a returning visitor, new visitor, or other
+  17. Weekend: Whether the session takes place during the weekend or not (boolean)
+  18. Revenue: Whether the session ended in shopping (i.e. a transaction)
+  
+Some additional notes about the dataset in question:   
+
+  - For the first 6 variables, I could not find information on the units of time, nor whether the number of pages is specifically distinct (i.e. could going back and forth between 2 pages result in more than 2 pages visited?), although the durations appear to be in minutes.  
+  - It isn't 100% clear how the bounce rates and exit rates are being measured, since the observations are claimed to be individual sessions belonging to distinct users.  
+  - No information was provided on the meaning of the values of the operating system, browser, region, or traffic type. However, it should still be assumed that these are categorical variables or factors, and not numeric.
+  - The only variable which is definitively a response variable is Revenue, although we can examine possible relationships elsewhere. 
+
+As such, the following adjustments should be made to the dataset:
+
+```{r DatasetAdj}
+OnlineShoppers$OperatingSystems <- as.factor(OnlineShoppers$OperatingSystems)
+OnlineShoppers$Browser <- as.factor(OnlineShoppers$Browser)
+OnlineShoppers$Region <- as.factor(OnlineShoppers$Region)
+OnlineShoppers$TrafficType <- as.factor(OnlineShoppers$TrafficType)
+OnlineShoppers$Revenue <- as.factor(OnlineShoppers$Revenue)
+```
+
+Since the response variable is a logical / boolean value, we should use a generalized linear model which will allow us to find a probability between 0 and 1 based on our variables.
+
+The below are examples of the three types of models that I'll need to allow the user to adjust for various variables. 
+
+```{r BasicFits}
+set.seed(12)
+ShoppingIndex <- createDataPartition(OnlineShoppers$Revenue, p = 0.1, list = FALSE)
+ShoppingTrain <- OnlineShoppers[ShoppingIndex, ]
+ShoppingTest <- OnlineShoppers[-ShoppingIndex, ]
+# The above splits the data into a training and testing set.
+# In the app, p will be adjustable
+
+GLMFitExample <- glm(Revenue ~ ., data = ShoppingTrain, family = "binomial")
+ClassTreeExample <- tree(Revenue ~ ., data = ShoppingTrain)
+plot(ClassTreeExample)
+text(ClassTreeExample) # This showed the probability of Revenue == 1 before converted into factor
+RandomForestExample <- train(Revenue ~ ., data = ShoppingTrain,
+                method = "ranger",
+               trControl = trainControl(method = "cv",
+                                        number = 5),
+               tuneGrid = expand.grid(.mtry = 5:7,
+                                      .splitrule = "gini",
+                                      .min.node.size = c(10, 20)
+                              ))
+# The above may take some time, so may need to work around that
+```
+
+The `modeling info` tab will contain the following information:
+
+The *Generalized Linear Model* is an advanced form of the simple / multiple linear regression, which assumes the reponse variable can be most accurately expressed as a linear combination of the explanatory variables. In the generalized linear model, the response variable is taken as a function of this linear combination. In this particular case, since the Revenue variable is either TRUE or FALSE, our generalized linear model will calculate the probability of a transaction taking place, which will be between 0 and 1. While this model makes sense and is usable for predictions, it is much harder to interpret when there are many variables, and collinear variables can make the perceived significance of some variables misleading.
+
+A *Classification Tree* is a relatively simple way of interpreting the data and making future predictions easy. Data is split into groups based on the values of their more significant variables, and a single prediction is made for each group. In order to make a prediction from this model, you simply answer a series of TRUE/FALSE questions to easily determine which group you're in. This method sacrifices prediction quality for interpretability, which is why the third method given exists...
+
+A *Random Forest Model* fixes many of the problems with classification trees. To start, a bootstrap sample is taken, allowing us to gain many classification trees from the same data, which we can average. Additionally, we'll only include a subset of the predictors, instead of all of them, to avoid the potential issue where every tree is very similar due to a single powerful predictor. The downsides to this are that we lose a lot of interpretability due to merging together many different trees, and a random forest model also takes a lot more computing power. To make it usable on this app, I'm using the `ranger` method instead of the `rf` method.
+
+We can judge the accuracy of each model by misclassification rate, and predictions can be done on a simple probability basis - over a 0.5 probability predicts Revenue = TRUE, and under a 0.5 probability results in a prediction of Revenue = FALSE.
+
+```{r AccuracyPredictions}
+#glm?
+ClassTreeTrainAccuracy <- (summary(ClassTreeExample)$misclass[2] - summary(ClassTreeExample)$misclass[1])/summary(ClassTreeExample)$misclass[2]
+RandomForestTrainAccuracy <- max(RandomForestExample$results[,4])
+
+#glm?
+ClassTreeTest <- predict(ClassTreeExample, ShoppingTest, type = "class")
+ClassTreeTestAccuracy <- mean(ClassTreeTest == ShoppingTest$Revenue)
+RandomForestTest <- predict(RandomForestExample, ShoppingTest)
+RandomForestTestAccuracy <- mean(RandomForestTest == ShoppingTest$Revenue)
+
+
+```
+
+
+
+
+
+I also need to include MathJax.
+
+Insert the following here for pre-shiny app stuff:
+Modeling page
+  1. Modeling info tab (figure out what MathJax is)
+  2. Model fitting tab
+    a. split into training + testing
+    b. cross-validation
+    c. Fit statistics such as RMSE
+  3. Predictions
+
