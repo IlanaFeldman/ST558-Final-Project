@@ -98,18 +98,59 @@ A *Random Forest Model* fixes many of the problems with classification trees. To
 We can judge the accuracy of each model by misclassification rate, and predictions can be done on a simple probability basis - over a 0.5 probability predicts Revenue = TRUE, and under a 0.5 probability results in a prediction of Revenue = FALSE.
 
 ```{r AccuracyPredictions}
-#glm?
+GLMTrain <- predict(GLMFitExample, ShoppingTrain, type = "response")
+GLMTrainAccuracy <- mean((GLMTrain > 0.5) == ShoppingTrain$Revenue)
 ClassTreeTrainAccuracy <- (summary(ClassTreeExample)$misclass[2] - summary(ClassTreeExample)$misclass[1])/summary(ClassTreeExample)$misclass[2]
 RandomForestTrainAccuracy <- max(RandomForestExample$results[,4])
 
-#glm?
+# Since it isn't possible to predict for factors that exist only in the Test set, we should probably find a way to remove them for the purposes of counting misclassifications.
+
+ShoppingTest.Factors <- ShoppingTest
+
+# The purpose of this is to detect which, if any, factors are missing in the training set. Once we do that, we can temporarily remove them from the test dataset
+MissingOS <- setdiff(levels(ShoppingTrain$OperatingSystems), ShoppingTrain$OperatingSystems)
+if(length(MissingOS) > 0) {
+  ShoppingTest.Factors <- ShoppingTest.Factors[-which(ShoppingTest.Factors$OperatingSystems %in% MissingOS),]
+}
+
+MissingBrowser <- setdiff(levels(ShoppingTrain$Browser), ShoppingTrain$Browser)
+if(length(MissingBrowser) > 0) {
+  ShoppingTest.Factors <- ShoppingTest.Factors[-which(ShoppingTest.Factors$Browser %in% MissingBrowser),]
+}
+
+MissingRegion <- setdiff(levels(ShoppingTrain$Region), ShoppingTrain$Region)
+if(length(MissingRegion) > 0) {
+  ShoppingTest.Factors <- ShoppingTest.Factors[-which(ShoppingTest.Factors$Region %in% MissingRegion),]
+}
+
+MissingTraffic <- setdiff(levels(ShoppingTrain$TrafficType), ShoppingTrain$TrafficType)
+if(length(MissingTraffic) > 0) {
+  ShoppingTest.Factors <- ShoppingTest.Factors[-which(ShoppingTest.Factors$TrafficType %in% MissingTraffic),]
+}
+
+# However, these removed rows should probably be counted as misclassifications when we do this, since we can't predict them.
+GLMTest <- predict(GLMFitExample, ShoppingTest.Factors, type = "response")
+GLMTestAccuracy <- sum((GLMTest > 0.5) == ShoppingTest.Factors$Revenue)/nrow(ShoppingTest)
 ClassTreeTest <- predict(ClassTreeExample, ShoppingTest, type = "class")
 ClassTreeTestAccuracy <- mean(ClassTreeTest == ShoppingTest$Revenue)
 RandomForestTest <- predict(RandomForestExample, ShoppingTest)
 RandomForestTestAccuracy <- mean(RandomForestTest == ShoppingTest$Revenue)
 
+# Due to the number of variables, it makes the most sense from a user-friendly standpoint to use the classification tree to predict. Once I set everything up, I should see which variables can be found in the tree for various values of p when setting up the training and testing setup.
 
+# When working with the example, the significant variables are PageValues, Region, Administrative, and ExitRates.
+
+ShopperPredict <- OnlineShoppers[1,]
+# Assign relevant prediction values here
+ShopperPredict[1, "PageValues"] <- 0.7
+ShopperPredict[1, "Administrative"] <- 3
+ShopperPredict[1, "ExitRates"] <- 0.009
+ShopperPredict[1, "Region"] <- as.factor(4)
+predict(ClassTreeExample, ShopperPredict, type = "class")
+# For some reason, doing it in a seemingly more reasonable way is a complete mess.
+# This should be updated with any variables that turn out to be significant for some value of p.
 ```
+
 
 
 
