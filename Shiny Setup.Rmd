@@ -150,20 +150,3 @@ predict(ClassTreeExample, ShopperPredict, type = "class")
 # For some reason, doing it in a seemingly more reasonable way is a complete mess.
 # This should be updated with any variables that turn out to be significant for some value of p.
 ```
-
-
-
-
-
-
-I also need to include MathJax.
-
-Insert the following here for pre-shiny app stuff:
-Modeling page
-  1. Modeling info tab (figure out what MathJax is)
-  2. Model fitting tab
-    a. split into training + testing
-    b. cross-validation
-    c. Fit statistics such as RMSE
-  3. Predictions
-
