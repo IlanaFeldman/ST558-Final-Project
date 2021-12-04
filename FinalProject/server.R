@@ -28,7 +28,18 @@ shinyServer(function(input, output) {
     })
     
     getDataReduced <- reactive({
-        newData <- OnlineShoppers[1:200,]
+        if (input$filterDataBy == "Greater Than") {
+          newData <- OnlineShoppers %>% filter(.data[[input$filterDataNumerics]] > .env$input$filterDataNumber)
+        }
+        else if (input$filterDataBy == "Equal To") {
+          newData <- OnlineShoppers %>% filter(.data[[input$filterDataNumerics]] == .env$input$filterDataNumber)
+        }
+        else {
+          newData <- OnlineShoppers %>% filter(.data[[input$filterDataNumerics]] < .env$input$filterDataNumber)
+        }
+        if (nrow(newData) > 200) {
+          newData <- newData[1:200,]
+        }
     })
     
     dataURL <- a("here.", href = "https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset")
@@ -56,7 +67,7 @@ shinyServer(function(input, output) {
             write_csv(getData(), file)
         }
     )
-
+    
     output$tableInfo <- renderText({
         newData <- getDataReduced()
         if(nrow(newData) == 200) {
@@ -73,6 +84,16 @@ shinyServer(function(input, output) {
         reducedData <- getDataReduced()
         reducedData[rows]
     })
+    
+    output$textSummary <- renderPrint({
+      if (is.character(pull(OnlineShoppers[input$variableSummary])) == FALSE) {
+        summary(OnlineShoppers[input$variableSummary])
+      } else {
+        table(OnlineShoppers[input$variableSummary])
+      }
+    })
+    
+    
     
 
 })
