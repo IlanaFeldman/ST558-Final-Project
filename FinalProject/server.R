@@ -8,27 +8,27 @@
 #
 
 library(shiny)
+library(tidyverse)
+library(tree)
+library(caret)
+library(ranger)
+OnlineShoppers <- read_csv("online_shoppers_intention.csv")
+OnlineShoppers$OperatingSystems <- as.factor(OnlineShoppers$OperatingSystems)
+OnlineShoppers$Browser <- as.factor(OnlineShoppers$Browser)
+OnlineShoppers$Region <- as.factor(OnlineShoppers$Region)
+OnlineShoppers$TrafficType <- as.factor(OnlineShoppers$TrafficType)
+OnlineShoppers$Revenue <- as.factor(OnlineShoppers$Revenue)
+
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
-
-    output$distPlot <- renderPlot({
-
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white')
-
+    
+    getData <- reactive({
+        newData <- OnlineShoppers
     })
     
-    output$diffPlot <- renderPlot({
-        
-        x2 <- c(1, 2, 3)
-        y2 <- c(3, 4, 2)
-        plot(x2, y2)
-        
+    getDataReduced <- reactive({
+        newData <- OnlineShoppers[1:200,]
     })
     
     dataURL <- a("here.", href = "https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset")
@@ -48,18 +48,31 @@ shinyServer(function(input, output) {
         HTML("Each subsequent tab is as follows: <br><ul><li> Data: Allows the user to observer, subset, and save the dataset. </li><li> Data Exploration: Allows the user to create custom summaries of the data. </li><li> Modeling: Allows the user to fit a model and create predictions. This is split into three tabs. </li></ul>")
     })
     
-    
-    
-    output$coolText <- renderText({
-        "Hello there! There is no reason to be alarmed."
+    output$downloadData <- downloadHandler(
+        filename = function() {
+            paste("OnlineShoppers.csv", sep ='')
+        },
+        content = function(file){
+            write_csv(getData(), file)
+        }
+    )
+
+    output$tableInfo <- renderText({
+        newData <- getDataReduced()
+        if(nrow(newData) == 200) {
+            "The data is currently limited to 200 rows to avoid heavy strain."
+        }
     })
     
-    output$coolTextTwo <- renderText({
-        "Hello there! There is some reason to be alarmed."
+    dataRows <- eventReactive(input$updateTable, {
+        c(input$variables, "Revenue")
+        })
+
+    output$table <- renderTable({
+        rows <- dataRows()
+        reducedData <- getDataReduced()
+        reducedData[rows]
     })
     
-    output$coolTextThree <- renderText({
-        "Hello there! There is much reason to be alarmed."
-    })
 
 })
