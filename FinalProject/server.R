@@ -85,15 +85,33 @@ shinyServer(function(input, output) {
         reducedData[rows]
     })
     
-    output$textSummary <- renderPrint({
-      if (is.character(pull(OnlineShoppers[input$variableSummary])) == FALSE) {
-        summary(OnlineShoppers[input$variableSummary])
+    output$textVariableSummary <- renderPrint({
+      if (is.character(pull(OnlineShoppers[input$textVariable])) == FALSE) {
+        summary(OnlineShoppers[input$textVariable])
       } else {
-        table(OnlineShoppers[input$variableSummary])
+        table(OnlineShoppers[input$textVariable])
       }
     })
     
+    output$boxPlot <- renderPlot({
+      allData <- getData()
+      ggplot(allData, aes(.data[[input$boxplotVariable]])) + geom_boxplot()
+    })
     
+    output$histbarPlot <- renderPlot({
+      allData <- getData()
+      g <- ggplot(allData, aes(.data[[input$histbarplotVariable]]))
+      if (is.numeric(pull(OnlineShoppers[input$histbarplotVariable])) == TRUE) {
+        g + geom_histogram()
+      } else {
+        g + geom_bar()
+      }
+    })
+    
+    output$scatterPlot <- renderPlot({
+      allData <- getData()
+      ggplot(allData, aes(x = .data[[input$scatterVariableOne]], y = .data[[input$scatterVariableTwo]])) + geom_point()
+    })
     
 
 })

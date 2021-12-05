@@ -1,6 +1,5 @@
 # for data exploration:
-    # get button to work
-    # if-then for different variable types
+    # allow data filtering for both text and graph
 
 library(shiny)
 library(tidyverse)
@@ -44,14 +43,30 @@ shinyUI(fluidPage(
                      tableOutput("table")),
             
             
-            tabPanel("Data Exploration", p("Choose a variable to show a numerical summary of."),
-                     selectInput("variableSummary", "Variable Summary Choice", colnames(OnlineShoppers)[-18]),
+            tabPanel("Data Exploration", p("To start, choose either a textual or graphical output."),
                      selectInput("summaryType", "Type of Summary", c("Text", "Graph")),
-                     actionButton("createSummary", "Create Summary"),
                      
+                     # Conditional Panels depending on the type of graph
                      conditionalPanel(condition = "input.summaryType == 'Text'",
-                                      verbatimTextOutput("textSummary")
-                                      )
+                                      selectInput("textVariable", "Variable Summary Choice", colnames(OnlineShoppers)[-18]),
+                                      verbatimTextOutput("textVariableSummary")),
+                     
+                     conditionalPanel(condition = "input.summaryType == 'Graph'",
+                                      selectInput("graphType", "Choose a type of graph.", c("Box Plot", "Histogram / Bar Plot", "Scatterplot")),
+                                      conditionalPanel(condition = "input.graphType == 'Box Plot'",
+                                            selectInput("boxplotVariable", "Choose a numeric variable.", colnames(OnlineShoppers[sapply(OnlineShoppers, is.numeric)])),
+                                            plotOutput("boxPlot")
+                                      ),
+                                      conditionalPanel(condition = "input.graphType == 'Histogram / Bar Plot'",
+                                            selectInput("histbarplotVariable", "Choose a variable.", colnames(OnlineShoppers)),
+                                            plotOutput("histbarPlot")
+                                      ),
+                                      conditionalPanel(condition = "input.graphType == 'Scatterplot'",
+                                            selectInput("scatterVariableOne", "Choose the first variable.", colnames(OnlineShoppers)),
+                                            selectInput("scatterVariableTwo", "Choose the second variable.", colnames(OnlineShoppers)),
+                                            plotOutput("scatterPlot")
+                                            )
+                                     )
                      ),
             
             "Modeling",
