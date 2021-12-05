@@ -1,6 +1,3 @@
-# for data exploration:
-    # allow data filtering for both text and graph
-
 library(shiny)
 library(tidyverse)
 library(tree)
@@ -35,8 +32,8 @@ shinyUI(fluidPage(
                      
                      # Filter Range
                      selectInput("filterDataNumerics", "Choose a numeric variable to filter by.", colnames(OnlineShoppers[sapply(OnlineShoppers, is.numeric)])),
-                     selectInput("filterDataBy", "Choose a type of range.", c("Less Than", "Equal To", "Greater Than")),
-                     numericInput("filterDataNumber", "Choose a numerical boundary.", value = 1),
+                     selectInput("filterDataBy", "Choose a type of range.", c("Greater Than", "Equal To", "Less Than")),
+                     numericInput("filterDataNumber", "Choose a numerical boundary.", value = -1),
                      
                      # Action button + actual table
                      actionButton("updateTable", "Update Table"),
@@ -46,24 +43,28 @@ shinyUI(fluidPage(
             tabPanel("Data Exploration", p("To start, choose either a textual or graphical output."),
                      selectInput("summaryType", "Type of Summary", c("Text", "Graph")),
                      
+                     selectInput("filterGraphNumerics", "Choose a numeric variable to filter by.", colnames(OnlineShoppers[sapply(OnlineShoppers, is.numeric)])),
+                     selectInput("filterGraphBy", "Choose a type of range.", c("Greater Than", "Equal To", "Less Than")),
+                     numericInput("filterGraphNumber", "Choose a numerical boundary.", value = -1),
+                     
                      # Conditional Panels depending on the type of graph
                      conditionalPanel(condition = "input.summaryType == 'Text'",
-                                      selectInput("textVariable", "Variable Summary Choice", colnames(OnlineShoppers)[-18]),
+                                      selectInput("textVariable", "Choose a variable to summarize.", colnames(OnlineShoppers)[-18]),
                                       verbatimTextOutput("textVariableSummary")),
                      
                      conditionalPanel(condition = "input.summaryType == 'Graph'",
                                       selectInput("graphType", "Choose a type of graph.", c("Box Plot", "Histogram / Bar Plot", "Scatterplot")),
                                       conditionalPanel(condition = "input.graphType == 'Box Plot'",
-                                            selectInput("boxplotVariable", "Choose a numeric variable.", colnames(OnlineShoppers[sapply(OnlineShoppers, is.numeric)])),
+                                            selectInput("boxplotVariable", "Choose a numeric variable for the graph.", colnames(OnlineShoppers[sapply(OnlineShoppers, is.numeric)])),
                                             plotOutput("boxPlot")
                                       ),
                                       conditionalPanel(condition = "input.graphType == 'Histogram / Bar Plot'",
-                                            selectInput("histbarplotVariable", "Choose a variable.", colnames(OnlineShoppers)),
+                                            selectInput("histbarplotVariable", "Choose a variable for the graph.", colnames(OnlineShoppers)),
                                             plotOutput("histbarPlot")
                                       ),
                                       conditionalPanel(condition = "input.graphType == 'Scatterplot'",
-                                            selectInput("scatterVariableOne", "Choose the first variable.", colnames(OnlineShoppers)),
-                                            selectInput("scatterVariableTwo", "Choose the second variable.", colnames(OnlineShoppers)),
+                                            selectInput("scatterVariableOne", "Choose the first variable for the graph.", colnames(OnlineShoppers)),
+                                            selectInput("scatterVariableTwo", "Choose the second variable for the graph.", colnames(OnlineShoppers)),
                                             plotOutput("scatterPlot")
                                             )
                                      )

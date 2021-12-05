@@ -39,7 +39,20 @@ shinyServer(function(input, output) {
         }
         if (nrow(newData) > 200) {
           newData <- newData[1:200,]
-        }
+        } else {newData <- newData}
+      return(newData) # Worked without this/the previous line until I added some completely unrelated stuff???
+    })
+    
+    getDataFiltered <- reactive({
+      if (input$filterGraphBy == "Greater Than") {
+        newData <- OnlineShoppers %>% filter(.data[[input$filterGraphNumerics]] > .env$input$filterGraphNumber)
+      }
+      else if (input$filterGraphBy == "Equal To") {
+        newData <- OnlineShoppers %>% filter(.data[[input$filterGraphNumerics]] == .env$input$filterGraphNumber)
+      }
+      else {
+        newData <- OnlineShoppers %>% filter(.data[[input$filterGraphNumerics]] < .env$input$filterGraphNumber)
+      }
     })
     
     dataURL <- a("here.", href = "https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset")
@@ -76,30 +89,33 @@ shinyServer(function(input, output) {
     })
     
     dataRows <- eventReactive(input$updateTable, {
-        c(input$variables, "Revenue")
+        list(c(input$variables, "Revenue"),
+             getDataReduced()
+        )
         })
-
+    
     output$table <- renderTable({
-        rows <- dataRows()
-        reducedData <- getDataReduced()
+        rows <- dataRows()[[1]]
+        reducedData <- dataRows()[[2]]
         reducedData[rows]
     })
     
     output$textVariableSummary <- renderPrint({
+      allData <- getDataFiltered()
       if (is.character(pull(OnlineShoppers[input$textVariable])) == FALSE) {
-        summary(OnlineShoppers[input$textVariable])
+        summary(allData[input$textVariable])
       } else {
-        table(OnlineShoppers[input$textVariable])
+        table(allData[input$textVariable])
       }
     })
     
     output$boxPlot <- renderPlot({
-      allData <- getData()
+      allData <- getDataFiltered()
       ggplot(allData, aes(.data[[input$boxplotVariable]])) + geom_boxplot()
     })
     
     output$histbarPlot <- renderPlot({
-      allData <- getData()
+      allData <- getDataFiltered()
       g <- ggplot(allData, aes(.data[[input$histbarplotVariable]]))
       if (is.numeric(pull(OnlineShoppers[input$histbarplotVariable])) == TRUE) {
         g + geom_histogram()
@@ -109,9 +125,13 @@ shinyServer(function(input, output) {
     })
     
     output$scatterPlot <- renderPlot({
-      allData <- getData()
+      allData <- getDataFiltered()
       ggplot(allData, aes(x = .data[[input$scatterVariableOne]], y = .data[[input$scatterVariableTwo]])) + geom_point()
     })
     
+    
+    #output$modelInfoOne <- renderUI({
+      
+    #})
 
 })
