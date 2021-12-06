@@ -19,16 +19,18 @@ shinyUI(fluidPage(
     # Sidebar with a slider input for number of bins
 
         navlistPanel(
-            tabPanel("About", uiOutput("aboutOne"), br(), 
+            tabPanel("About", 
+                     uiOutput("aboutOne"), br(), 
                      uiOutput("aboutTwo"), br(), 
                      uiOutput("aboutThree"), 
                      img(src = "ImageOfTable.png", height = 90)),
             
             
-            tabPanel("Data", p("If you download the data, you may need to do so in browser mode."),
+            tabPanel("Data", 
+                     p("If you download the data, you may need to do so in browser mode."),
                      textOutput("tableInfo"),
-                     downloadButton("downloadData", "Download the full dataset"),
-                     checkboxGroupInput("variables", "Choose explanatory variables for the dataset", colnames(OnlineShoppers)[-18]),
+                     downloadButton("downloadData", "Download the full dataset."),
+                     checkboxGroupInput("variables", "Choose explanatory variables for the dataset.", colnames(OnlineShoppers)[-18]),
                      
                      # Filter Range
                      selectInput("filterDataNumerics", "Choose a numeric variable to filter by.", colnames(OnlineShoppers[sapply(OnlineShoppers, is.numeric)])),
@@ -40,7 +42,8 @@ shinyUI(fluidPage(
                      tableOutput("table")),
             
             
-            tabPanel("Data Exploration", p("To start, choose either a textual or graphical output."),
+            tabPanel("Data Exploration", 
+                     p("To start, choose either a textual or graphical output."),
                      selectInput("summaryType", "Type of Summary", c("Text", "Graph")),
                      
                      selectInput("filterGraphNumerics", "Choose a numeric variable to filter by.", colnames(OnlineShoppers[sapply(OnlineShoppers, is.numeric)])),
@@ -71,11 +74,30 @@ shinyUI(fluidPage(
                      ),
             
             "Modeling",
-            tabPanel("Modeling Info"),
+            tabPanel("Modeling Info", 
+                     uiOutput("modelInfo")),
             
-            tabPanel("Model Fitting"),
+            tabPanel("Model Fitting", 
+                     sliderInput("trainingSize", "Choose the proportion of data to train your model.", min = 0.01, max = 0.2, value = 0.1, step = 0.005),
+                     checkboxGroupInput("modelVariables", "Choose explanatory variables for the models.", colnames(OnlineShoppers)[-18]),
+                     actionButton("startFit", "Fit the models!"),
+                     
+                     # Outputs
+                     verbatimTextOutput("linearModel"),
+                     verbatimTextOutput("classTreeModel"),
+                     plotOutput("classTreeGraph"),
+                     verbatimTextOutput("randomForestModel"),
+                     plotOutput("randomForestGraph"),
+                     ),
             
-            tabPanel("Prediction")
+            tabPanel("Prediction",
+                     p("You can predict a response using a classification tree and the significant variables according to the full generalized linear model."),
+                     numericInput("predictExitRates", "Choose a value for the Exit Rate (Recommended between 0 and 0.2).", value = 0),
+                     numericInput("predictPageValues", "Choose a value for the Page Value (Recommended between 0 and 361.7637)", value = 0),
+                     selectInput("predictTrafficType", "Choose a value for the Traffic Type factor.", 1:20),
+                     actionButton("startPredict", "Predict!"),
+                     verbatimTextOutput("prediction")
+                     )
         )
         
     )

@@ -1,12 +1,3 @@
-#
-# This is the server logic of a Shiny web application. You can run the
-# application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
 library(shiny)
 library(tidyverse)
 library(tree)
@@ -112,6 +103,7 @@ shinyServer(function(input, output) {
     output$boxPlot <- renderPlot({
       allData <- getDataFiltered()
       ggplot(allData, aes(.data[[input$boxplotVariable]])) + geom_boxplot()
+      # Chose not to use geom_jitter since this actively makes the data less readable.
     })
     
     output$histbarPlot <- renderPlot({
@@ -130,8 +122,104 @@ shinyServer(function(input, output) {
     })
     
     
-    #output$modelInfoOne <- renderUI({
+    output$modelInfo <- renderUI({
+      withMathJax(
+        helpText('The Generalized Linear Model is an advanced form of the simple / multiple linear regression, which assumes the reponse variable can be most accurately expressed as a linear combination of the explanatory variables. In the generalized linear model, the response variable is taken as a function of this linear combination. In this particular case, since the Revenue variable is either TRUE or FALSE, our generalized linear model will calculate the probability of a transaction taking place. For example,
+                 $$P(\\text{Successful Transaction}) = \\frac{B_0 + B_1x}{1 + e^{B_0 + B_1x}}$$
+                 ...would be a binomial outcome modeled by an intercept term and one variable. This will always evaluate to a value between 0 and 1. While this type of model is very simple at its basics and is usable for predictions, it is much harder to interpret when there are many variables, and collinear variables can make the perceived significance of some variables misleading.'
+        ),
+        helpText('A Classification Tree is a relatively simple way of interpreting the data and making future predictions easy. Data is split into groups based on the values of their more significant variables, and a single prediction is made for each group. In order to make a prediction from this model, you simply answer a series of TRUE/FALSE questions to easily determine which group you are in. This method sacrifices prediction quality for interpretability, which is why the third method given exists...'
+                 ),
+        helpText('A Random Forest Model fixes many of the problems with classification trees. To start, a bootstrap sample is taken, allowing us to gain many classification trees from the same data, which we can average. Additionally, we will only include a subset of the predictors, instead of all of them, to avoid the potential issue where every tree is very similar due to a single powerful predictor. The downsides to this are that we lose a lot of interpretability due to merging together many different trees, and a random forest model also takes a lot more computing power. To make it usable on this app, I am using the ranger method instead of the rf method.'
+                 )
+      )
       
-    #})
+    })
+    
+    models <- eventReactive(input$startFit, {
+      allData <- getData()
+      set.seed(144)
+      formula <- paste0(input$modelVariables, collapse = "+")
+      shoppingIndex <- createDataPartition(OnlineShoppers$Revenue, p = input$trainingSize, list = FALSE)
+      trainingData <- allData[shoppingIndex, ]
+      testData <- allData[-shoppingIndex, ]
+      
+      # At this point we have to use the variable formula to get our unique model, as chosen by the user
+      formulaFull <- paste("Revenue ~ ", formula)
+      
+      glmFit <- glm(as.formula(formulaFull), data = trainingData, family = "binomial")
+      classTreeFit <- tree(as.formula(formulaFull), data = trainingData)
+      randomForestFit <- train(as.formula(formulaFull), data = trainingData,
+                                   method = "ranger",
+                                   trControl = trainControl(method = "cv",
+                                                            number = 5),
+                                   tuneGrid = expand.grid(.mtry = seq(1, min(8, length(input$modelVariables))),
+                                                          .splitrule = "gini",
+                                                          .min.node.size = c(10, 20)
+                                   ))
+      
+      return(list("Linear Model",
+                  glmFit,
+                  "Classification Tree Model",
+                  classTreeFit,
+                  "Random Forest Model",
+                  randomForestFit
+                  ))
+        
+    })
+    
+    output$linearModel <- renderPrint({
+      glmModel <- models()[c(1,2)]
+      glmModel[[2]] <- summary(glmModel[[2]])
+      glmModel
+    })
+    
+    output$classTreeModel <- renderPrint({
+      treeModel <- models()[c(3,4)]
+      treeModel[[2]] <- summary(treeModel[[2]])
+      treeModel
+    })
+    
+    output$classTreeGraph <- renderPlot({
+      treeModel <- models()[[4]]
+      plot(treeModel)
+      text(treeModel)
+    })
+    
+    output$randomForestModel <- renderPrint({
+      forestModel <- models()[c(5,6)]
+      forestModel
+    })
+    
+    output$randomForestGraph <- renderPlot({
+      forestModel <- models()[[6]]
+      plot(forestModel)
+    })
+    
+    predictionModel <- eventReactive(input$startPredict, {
+      allData <- getData()
+      set.seed(144)
+      shoppingIndex <- createDataPartition(allData$Revenue, p = 0.1, list = FALSE)
+      trainingData <- allData[shoppingIndex, ]
+      reducedTreeFit <- tree(Revenue ~ ExitRates + PageValues + TrafficType, data = trainingData)
+      
+      shopperPredict <- allData[1,]
+      shopperPredict[1,8] <- input$predictExitRates
+      shopperPredict[1,9] <- input$predictPageValues
+      shopperPredict[1,15] <- as.factor(input$predictTrafficType)
+      return(list(reducedTreeFit, shopperPredict))
+    })
+    
+    output$prediction <- renderText({
+      reducedTreeFit <- predictionModel()[[1]]
+      shopperPredict <- predictionModel()[[2]]
+      result <- predict(reducedTreeFit, shopperPredict, type = "class")
+      if (as.logical(result) == FALSE) {
+        return("A shopper with these statistics is LESS likely than not to make a transaction.")
+      } else {
+        return("A shopper with these statistics is MORE likely than not to make a transaction.")
+      }
+    })
 
 })
+
